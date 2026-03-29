@@ -31,6 +31,7 @@ async def maybe_prune_expired_data(session: AsyncSession, settings: Settings) ->
         cutoff = now - timedelta(hours=settings.retention_hours)
         await session.execute(delete(AlertEvent).where(AlertEvent.occurred_at < cutoff))
         await session.execute(delete(TelemetryReading).where(TelemetryReading.ingested_at < cutoff))
+        await session.commit()
         _last_cleanup_at = now
 
 
@@ -64,12 +65,34 @@ async def ingest_telemetry(
     return reading, alert_rows
 
 
-async def fetch_history(session: AsyncSession, minutes: int) -> list[TelemetryReading]:
+async def fetch_history(
+    session: AsyncSession,
+    minutes: int,
+    limit: int = 1_000,
+) -> list[TelemetryReading]:
     cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
     result = await session.execute(
         select(TelemetryReading)
         .where(TelemetryReading.simulator_ts >= cutoff)
-        .order_by(TelemetryReading.simulator_ts.asc())
+        .order_by(TelemetryReading.simulator_ts.desc())
+        .limit(limit)
+    )
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
+
+
+async def fetch_alert_history(
+    session: AsyncSession,
+    minutes: int,
+    limit: int = 100,
+) -> list[AlertEvent]:
+    cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
+    result = await session.execute(
+        select(AlertEvent)
+        .where(AlertEvent.occurred_at >= cutoff)
+        .order_by(AlertEvent.occurred_at.desc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 

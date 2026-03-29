@@ -85,6 +85,7 @@ class TelemetryHistoryResponse(BaseModel):
     minutes: int
     count: int
     readings: list[TelemetryReadingOut]
+    alerts: list[AlertEventOut]
 
 
 class HealthResponse(BaseModel):

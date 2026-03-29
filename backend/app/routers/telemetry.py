@@ -12,7 +12,12 @@ from ..schemas import (
     TelemetryIngestResponse,
     TelemetryReadingOut,
 )
-from ..service import fetch_history, ingest_telemetry, maybe_prune_expired_data
+from ..service import (
+    fetch_alert_history,
+    fetch_history,
+    ingest_telemetry,
+    maybe_prune_expired_data,
+)
 from ..ws import manager
 
 
@@ -41,8 +46,21 @@ async def receive_telemetry(
 @router.get("/telemetry/history", response_model=TelemetryHistoryResponse)
 async def get_telemetry_history(
     minutes: int = Query(default=15, ge=1, le=24 * 60),
+    limit: int = Query(default=1_000, ge=1, le=10_000),
     session: AsyncSession = Depends(get_session),
 ) -> TelemetryHistoryResponse:
-    readings = await fetch_history(session, minutes=minutes)
-    serialized = [TelemetryReadingOut.model_validate(reading) for reading in readings]
-    return TelemetryHistoryResponse(minutes=minutes, count=len(serialized), readings=serialized)
+    settings = get_settings()
+    await maybe_prune_expired_data(session, settings)
+
+    readings = await fetch_history(session, minutes=minutes, limit=limit)
+    alerts = await fetch_alert_history(session, minutes=minutes)
+
+    serialized_readings = [TelemetryReadingOut.model_validate(reading) for reading in readings]
+    serialized_alerts = [AlertEventOut.model_validate(alert) for alert in alerts]
+
+    return TelemetryHistoryResponse(
+        minutes=minutes,
+        count=len(serialized_readings),
+        readings=serialized_readings,
+        alerts=serialized_alerts,
+    )

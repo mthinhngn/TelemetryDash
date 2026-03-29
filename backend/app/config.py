@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 class Settings(BaseModel):
     database_url: str = "postgresql+asyncpg://telemetry:telemetry@localhost:5432/telemetry"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
-    retention_hours: int = 24
+    retention_hours: int = 72
     cleanup_interval_seconds: int = 60
 
     low_battery_soc_pct: float = 20.0
@@ -69,7 +69,7 @@ def get_settings() -> Settings:
             "CORS_ORIGINS",
             dotenv_values.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"),
         ),
-        retention_hours=os.getenv("RETENTION_HOURS", dotenv_values.get("RETENTION_HOURS", 24)),
+        retention_hours=os.getenv("RETENTION_HOURS", dotenv_values.get("RETENTION_HOURS", 72)),
         cleanup_interval_seconds=os.getenv(
             "CLEANUP_INTERVAL_SECONDS",
             dotenv_values.get("CLEANUP_INTERVAL_SECONDS", 60),

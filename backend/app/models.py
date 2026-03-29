@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, desc, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -10,10 +10,6 @@ from .database import Base
 
 class TelemetryReading(Base):
     __tablename__ = "telemetry_readings"
-    __table_args__ = (
-        Index("ix_telemetry_readings_simulator_ts", "simulator_ts"),
-        Index("ix_telemetry_readings_vehicle_id_simulator_ts", "vehicle_id", "simulator_ts"),
-    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     simulator_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -59,10 +55,6 @@ class TelemetryReading(Base):
 
 class AlertEvent(Base):
     __tablename__ = "alert_events"
-    __table_args__ = (
-        Index("ix_alert_events_occurred_at", "occurred_at"),
-        Index("ix_alert_events_alert_type_occurred_at", "alert_type", "occurred_at"),
-    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     reading_id: Mapped[int] = mapped_column(
@@ -83,3 +75,23 @@ class AlertEvent(Base):
     )
 
     reading: Mapped[TelemetryReading] = relationship(back_populates="alert_events")
+
+
+Index(
+    "ix_telemetry_readings_simulator_ts_desc",
+    desc(TelemetryReading.simulator_ts),
+)
+Index(
+    "ix_telemetry_readings_vehicle_id_simulator_ts_desc",
+    TelemetryReading.vehicle_id,
+    desc(TelemetryReading.simulator_ts),
+)
+Index(
+    "ix_alert_events_occurred_at_desc",
+    desc(AlertEvent.occurred_at),
+)
+Index(
+    "ix_alert_events_alert_type_occurred_at_desc",
+    AlertEvent.alert_type,
+    desc(AlertEvent.occurred_at),
+)
