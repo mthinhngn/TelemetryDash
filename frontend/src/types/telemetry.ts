@@ -33,6 +33,9 @@ export interface TelemetryReading {
   ingested_at: string;
 }
 
+export type TelemetryInputPayload = Omit<TelemetryReading, "id" | "ingested_at">;
+export type TelemetryInputFormValues = Omit<TelemetryInputPayload, "simulator_ts">;
+
 export interface AlertEvent {
   id: number;
   reading_id: number;

@@ -9,9 +9,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { appConfig } from "./config";
 import { AlertFeed } from "./components/AlertFeed";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { MetricCard } from "./components/MetricCard";
+import { TelemetryInputPanel } from "./components/TelemetryInputPanel";
 import { useTelemetryDashboard } from "./hooks/useTelemetryDashboard";
 import { createTelemetryClient } from "./lib/createTelemetryClient";
 import type { TelemetryClient } from "./lib/telemetryClient";
@@ -186,6 +188,8 @@ export default function App({ client = defaultClient }: AppProps) {
             </div>
           </div>
         </header>
+
+        <TelemetryInputPanel apiUrl={appConfig.apiUrl} mockMode={appConfig.useMockData} />
 
         <section className="metric-grid" aria-label="Live telemetry metrics">
           <MetricCard

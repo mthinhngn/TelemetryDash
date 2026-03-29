@@ -150,6 +150,158 @@ body {
   font-size: 1.45rem;
 }
 
+.telemetry-input {
+  margin-top: 22px;
+}
+
+.telemetry-input__header {
+  align-items: center;
+}
+
+.telemetry-input__toggle,
+.telemetry-input__button {
+  border: 1px solid rgba(16, 42, 67, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #102a43;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 16px;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.telemetry-input__toggle:hover,
+.telemetry-input__button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(16, 42, 67, 0.08);
+}
+
+.telemetry-input__toggle:disabled,
+.telemetry-input__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
+.telemetry-input__body {
+  margin-top: 18px;
+}
+
+.telemetry-input__guard {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(241, 143, 1, 0.34);
+  background: rgba(255, 246, 229, 0.92);
+  color: #8a5300;
+}
+
+.telemetry-input__fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.telemetry-input__accordion {
+  border: 1px solid rgba(16, 42, 67, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0 16px 16px;
+}
+
+.telemetry-input__accordion summary {
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  padding: 16px 0;
+}
+
+.telemetry-input__accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.telemetry-input__section-copy {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+}
+
+.telemetry-input__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.telemetry-input__field {
+  display: grid;
+  gap: 6px;
+}
+
+.telemetry-input__field span {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.telemetry-input__field input {
+  width: 100%;
+  border: 1px solid rgba(16, 42, 67, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #102a43;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.telemetry-input__field input:focus {
+  outline: 2px solid rgba(17, 138, 178, 0.24);
+  border-color: rgba(17, 138, 178, 0.42);
+}
+
+.telemetry-input__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.telemetry-input__button--primary {
+  background: rgba(11, 110, 79, 0.92);
+  border-color: rgba(11, 110, 79, 0.5);
+  color: white;
+}
+
+.telemetry-input__button--secondary {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.telemetry-input__status {
+  display: grid;
+  gap: 4px;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 42, 67, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.telemetry-input__status strong {
+  text-transform: capitalize;
+}
+
+.telemetry-input__status--success {
+  border-color: rgba(11, 110, 79, 0.3);
+  background: rgba(235, 252, 245, 0.88);
+}
+
+.telemetry-input__status--error {
+  border-color: rgba(214, 40, 57, 0.3);
+  background: rgba(255, 241, 243, 0.92);
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -392,6 +544,10 @@ body {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .telemetry-input__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -416,5 +572,18 @@ body {
 
   .meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .telemetry-input__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-input__actions {
+    justify-content: stretch;
+  }
+
+  .telemetry-input__toggle,
+  .telemetry-input__button {
+    width: 100%;
   }
 }
