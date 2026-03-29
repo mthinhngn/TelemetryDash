@@ -121,6 +121,41 @@ describe("TelemetryInputPanel", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Backend exploded");
   });
 
+  it("streams randomized telemetry packets until stopped", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-29T10:15:30.000Z"));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => "",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TelemetryInputPanel apiUrl="http://localhost:8000" mockMode={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Data Input" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Start Live Stream" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Stop Live Stream" })).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(950);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4);
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop Live Stream" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Live stream stopped.");
+  });
+
   it("random generator stays backend-valid without empty required values", () => {
     const generated = generateRandomTelemetryFormValues();
 

@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { appConfig } from "../config";
 import {
   buildTelemetrySubmitPayload,
@@ -108,6 +108,8 @@ const statusCopy: Record<SubmissionState, string> = {
   error: "Telemetry submission failed. Check the backend connection and try again.",
 };
 
+const AUTO_STREAM_INTERVAL_MS = 300;
+
 export function TelemetryInputPanel({
   apiUrl = appConfig.apiUrl,
   mockMode = appConfig.useMockData,
@@ -119,12 +121,36 @@ export function TelemetryInputPanel({
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
   const [statusDetail, setStatusDetail] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const isStreamingRef = useRef(false);
+  const streamIntervalRef = useRef<number | null>(null);
+  const streamRequestInFlightRef = useRef(false);
 
-  const isDisabled = mockMode || isSubmitting;
+  const isDisabled = mockMode || isSubmitting || isStreaming;
   const statusClassName = useMemo(
     () => `telemetry-input__status telemetry-input__status--${submissionState}`,
     [submissionState],
   );
+
+  useEffect(() => {
+    return () => {
+      if (streamIntervalRef.current !== null) {
+        window.clearInterval(streamIntervalRef.current);
+      }
+    };
+  }, []);
+
+  function stopStreaming(detail = "Live stream stopped.") {
+    if (streamIntervalRef.current !== null) {
+      window.clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+    isStreamingRef.current = false;
+    streamRequestInFlightRef.current = false;
+    setIsStreaming(false);
+    setSubmissionState("idle");
+    setStatusDetail(detail);
+  }
 
   function handleNumericChange(name: FieldName, value: string): void {
     setValues(
@@ -154,6 +180,39 @@ export function TelemetryInputPanel({
     }
   }
 
+  async function submitPayload(
+    payload = buildTelemetrySubmitPayload(values),
+    options?: {
+      suppressSuccessState?: boolean;
+      successDetail?: string;
+    },
+  ): Promise<void> {
+    try {
+      const response = await fetch(`${apiUrl}/telemetry`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(body || `Request failed with ${response.status}`);
+      }
+
+      if (!options?.suppressSuccessState) {
+        setSubmissionState("success");
+        setStatusDetail(
+          options?.successDetail ??
+            "Backend accepted the packet. Live charts will update through the socket.",
+        );
+      }
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("Unknown submission error.");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -168,27 +227,62 @@ export function TelemetryInputPanel({
     setStatusDetail("");
 
     try {
-      const payload = buildTelemetrySubmitPayload(values);
-      const response = await fetch(`${apiUrl}/telemetry`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(body || `Request failed with ${response.status}`);
-      }
-
-      setSubmissionState("success");
-      setStatusDetail("Backend accepted the packet. Live charts will update through the socket.");
+      await submitPayload();
     } catch (error) {
       setSubmissionState("error");
       setStatusDetail(error instanceof Error ? error.message : "Unknown submission error.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function pushStreamingPacket(): Promise<void> {
+    if (streamRequestInFlightRef.current) {
+      return;
+    }
+
+    streamRequestInFlightRef.current = true;
+    const nextValues = generateRandomTelemetryFormValues();
+    setValues(nextValues);
+
+    try {
+      await submitPayload(buildTelemetrySubmitPayload(nextValues), {
+        suppressSuccessState: true,
+      });
+    } catch (error) {
+      stopStreaming();
+      setSubmissionState("error");
+      setStatusDetail(
+        error instanceof Error ? error.message : "Live stream failed while sending telemetry.",
+      );
+    } finally {
+      streamRequestInFlightRef.current = false;
+    }
+  }
+
+  async function handleStreamToggle(): Promise<void> {
+    if (isStreaming) {
+      stopStreaming();
+      return;
+    }
+
+    if (mockMode) {
+      setSubmissionState("error");
+      setStatusDetail("Browser input requires VITE_USE_MOCK_DATA=false and a live backend.");
+      return;
+    }
+
+    setSubmissionState("success");
+    setStatusDetail("Live stream active. Random telemetry is posting to the backend every 300 ms.");
+    isStreamingRef.current = true;
+    setIsStreaming(true);
+
+    await pushStreamingPacket();
+
+    if (isStreamingRef.current && streamIntervalRef.current === null) {
+      streamIntervalRef.current = window.setInterval(() => {
+        void pushStreamingPacket();
+      }, AUTO_STREAM_INTERVAL_MS);
     }
   }
 
@@ -272,6 +366,20 @@ export function TelemetryInputPanel({
                 disabled={isDisabled}
               >
                 Generate Random
+              </button>
+              <button
+                type="button"
+                className={`telemetry-input__button ${
+                  isStreaming
+                    ? "telemetry-input__button--streaming-active"
+                    : "telemetry-input__button--streaming"
+                }`}
+                onClick={() => {
+                  void handleStreamToggle();
+                }}
+                disabled={mockMode || isSubmitting}
+              >
+                {isStreaming ? "Stop Live Stream" : "Start Live Stream"}
               </button>
               <button
                 type="submit"

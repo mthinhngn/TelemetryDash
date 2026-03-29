@@ -10,6 +10,7 @@ interface DashboardState {
   latestReading: TelemetryReading | null;
   readings: TelemetryReading[];
   errorMessage: string | null;
+  diagnosticMessage: string | null;
 }
 
 const INITIAL_STATE: DashboardState = {
@@ -18,17 +19,41 @@ const INITIAL_STATE: DashboardState = {
   latestReading: null,
   readings: [],
   errorMessage: null,
+  diagnosticMessage: null,
 };
 
 export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
   const [state, setState] = useState<DashboardState>(INITIAL_STATE);
   const reconnectTimerRef = useRef<number | null>(null);
+  const historyRetryTimerRef = useRef<number | null>(null);
   const isUnmountedRef = useRef(false);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(0);
   const connectToStreamRef = useRef<(isReconnect: boolean) => void>(() => undefined);
+  const loadHistoryRef = useRef<() => Promise<void>>(async () => undefined);
 
   useEffect(() => {
+    isUnmountedRef.current = false;
+    manualDisconnectRef.current = false;
+
+    function clearHistoryRetryTimer(): void {
+      if (historyRetryTimerRef.current !== null) {
+        window.clearTimeout(historyRetryTimerRef.current);
+        historyRetryTimerRef.current = null;
+      }
+    }
+
+    function scheduleHistoryRetry(): void {
+      if (isUnmountedRef.current || historyRetryTimerRef.current !== null) {
+        return;
+      }
+
+      historyRetryTimerRef.current = window.setTimeout(() => {
+        historyRetryTimerRef.current = null;
+        void loadHistoryRef.current();
+      }, appConfig.historyRefreshIntervalMs);
+    }
+
     function scheduleReconnect(): void {
       if (reconnectTimerRef.current !== null) {
         return;
@@ -64,10 +89,12 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
               isReconnect && connectionStatus === "connecting"
                 ? "reconnecting"
                 : connectionStatus,
+            errorMessage: connectionStatus === "connected" ? null : current.errorMessage,
           }));
 
           if (connectionStatus === "connected") {
             reconnectAttemptRef.current = 0;
+            clearHistoryRetryTimer();
           }
 
           if (
@@ -76,6 +103,7 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
             !isUnmountedRef.current
           ) {
             scheduleReconnect();
+            scheduleHistoryRetry();
           }
         },
         onMessage: (message) => {
@@ -113,6 +141,8 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
                     ...current,
                     alerts: prependAlerts(current.alerts, [message.alert], 10),
                   };
+                case "keepalive":
+                  return current;
               }
             });
           });
@@ -125,6 +155,12 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
             errorMessage: message,
           }));
         },
+        onDiagnostic: (diagnosticMessage) => {
+          setState((current) => ({
+            ...current,
+            diagnosticMessage,
+          }));
+        },
       });
     };
 
@@ -134,6 +170,7 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
           ...current,
           connectionStatus: "connecting",
           errorMessage: null,
+          diagnosticMessage: null,
         }));
 
         const history = normalizeHistory(
@@ -160,10 +197,13 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
           connectionStatus: "disconnected",
           errorMessage: message,
         }));
+        scheduleHistoryRetry();
       }
     }
 
-    void loadInitialHistory();
+    loadHistoryRef.current = loadInitialHistory;
+
+    void loadHistoryRef.current();
 
     return () => {
       isUnmountedRef.current = true;
@@ -172,6 +212,7 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
       }
+      clearHistoryRetryTimer();
 
       client.disconnect();
     };
@@ -181,6 +222,7 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
     () => ({
       ...state,
       latestReading: state.latestReading ?? state.readings.at(-1) ?? null,
+      errorMessage: state.errorMessage ?? state.diagnosticMessage,
     }),
     [state],
   );

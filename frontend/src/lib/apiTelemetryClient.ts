@@ -11,6 +11,7 @@ import type {
 
 export class ApiTelemetryClient implements TelemetryClient {
   private socket: WebSocket | null = null;
+  private connectTimeoutId: number | null = null;
 
   async fetchHistory({ minutes, limit }: HistoryRequest): Promise<TelemetryHistoryResponse> {
     const response = await fetch(
@@ -28,11 +29,32 @@ export class ApiTelemetryClient implements TelemetryClient {
   connect(handlers: TelemetryClientHandlers): void {
     this.disconnect();
     handlers.onStatusChange?.("connecting");
+    handlers.onDiagnostic?.(`Opening WebSocket: ${appConfig.wsUrl}`);
+    console.info("[telemetry] opening websocket", {
+      apiUrl: appConfig.apiUrl,
+      wsUrl: appConfig.wsUrl,
+    });
 
     const socket = new WebSocket(appConfig.wsUrl);
     this.socket = socket;
+    this.connectTimeoutId = window.setTimeout(() => {
+      if (this.socket !== socket || socket.readyState !== WebSocket.CONNECTING) {
+        return;
+      }
+
+      handlers.onDiagnostic?.(
+        `WebSocket handshake timed out after ${appConfig.websocketConnectTimeoutMs} ms (${appConfig.wsUrl}).`,
+      );
+      handlers.onStatusChange?.("disconnected");
+      socket.close(4000, "connect-timeout");
+    }, appConfig.websocketConnectTimeoutMs);
 
     socket.onopen = () => {
+      if (this.connectTimeoutId !== null) {
+        window.clearTimeout(this.connectTimeoutId);
+        this.connectTimeoutId = null;
+      }
+      handlers.onDiagnostic?.(`WebSocket connected: ${appConfig.wsUrl}`);
       handlers.onStatusChange?.("connected");
     };
 
@@ -46,15 +68,29 @@ export class ApiTelemetryClient implements TelemetryClient {
     };
 
     socket.onerror = (event) => {
+      handlers.onDiagnostic?.(`WebSocket error while connecting to ${appConfig.wsUrl}.`);
       handlers.onError?.(event);
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      if (this.connectTimeoutId !== null) {
+        window.clearTimeout(this.connectTimeoutId);
+        this.connectTimeoutId = null;
+      }
+      handlers.onDiagnostic?.(
+        `WebSocket closed (code ${event.code}, clean=${event.wasClean}, reason="${
+          event.reason || "none"
+        }").`,
+      );
       handlers.onStatusChange?.("disconnected");
     };
   }
 
   disconnect(): void {
+    if (this.connectTimeoutId !== null) {
+      window.clearTimeout(this.connectTimeoutId);
+      this.connectTimeoutId = null;
+    }
     if (this.socket) {
       this.socket.onopen = null;
       this.socket.onmessage = null;

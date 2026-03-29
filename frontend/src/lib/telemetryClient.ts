@@ -16,6 +16,7 @@ export interface TelemetryClientHandlers {
   onStatusChange?: (status: ConnectionStatus) => void;
   onMessage: (message: TelemetryStreamMessage) => void;
   onError?: (error: unknown) => void;
+  onDiagnostic?: (message: string | null) => void;
 }
 
 export interface TelemetryClient {

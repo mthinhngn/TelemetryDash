@@ -63,10 +63,16 @@ export interface LiveAlertMessage {
   alert: AlertEvent;
 }
 
+export interface KeepaliveMessage {
+  type: "keepalive";
+  ts: string;
+}
+
 export type TelemetryStreamMessage =
   | SnapshotMessage
   | LiveTelemetryMessage
-  | LiveAlertMessage;
+  | LiveAlertMessage
+  | KeepaliveMessage;
 
 export interface TelemetryHistoryResponse {
   minutes: number;

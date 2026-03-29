@@ -278,6 +278,18 @@ body {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.telemetry-input__button--streaming {
+  background: rgba(17, 138, 178, 0.1);
+  border-color: rgba(17, 138, 178, 0.28);
+  color: #0e5f77;
+}
+
+.telemetry-input__button--streaming-active {
+  background: rgba(241, 143, 1, 0.12);
+  border-color: rgba(241, 143, 1, 0.34);
+  color: #8a5300;
+}
+
 .telemetry-input__status {
   display: grid;
   gap: 4px;
