@@ -95,8 +95,6 @@ function buildAlert(
   overrides: Partial<AlertEvent> & Pick<AlertEvent, "id" | "message">,
 ): AlertEvent {
   return {
-    id: overrides.id,
-    message: overrides.message,
     timestamp: "2025-03-14T10:00:01.100Z",
     metric: "motor_temp_c",
     value: 72.3,
