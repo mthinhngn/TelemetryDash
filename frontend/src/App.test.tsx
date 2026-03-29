@@ -172,30 +172,37 @@ describe("Telemetry dashboard", () => {
 
   it("shows reconnecting state and retries after disconnect", async () => {
     vi.useFakeTimers();
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [buildReading()],
-      alerts: [],
-    }));
+    try {
+      const client = new FakeTelemetryClient(async () => ({
+        readings: [buildReading()],
+        alerts: [],
+      }));
 
-    render(<App client={client} />);
+      await act(async () => {
+        render(<App client={client} />);
+        await Promise.resolve();
+      });
 
-    await waitFor(() => expect(client.connectCalls).toBe(1));
+      expect(client.connectCalls).toBe(1);
 
-    act(() => {
-      client.setStatus("connected");
-      client.setStatus("disconnected");
-    });
+      act(() => {
+        client.setStatus("connected");
+        client.setStatus("disconnected");
+      });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Reconnecting to telemetry stream...",
-    );
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Reconnecting to telemetry stream...",
+      );
 
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
+      });
 
-    await waitFor(() => expect(client.connectCalls).toBe(2));
-    vi.useRealTimers();
+      expect(client.connectCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("seeds the dashboard from history_init messages", async () => {
