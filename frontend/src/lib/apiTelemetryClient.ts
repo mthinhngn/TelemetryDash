@@ -1,5 +1,8 @@
 import { appConfig } from "../config";
-import type { HistorySnapshot, TelemetryStreamMessage } from "../types/telemetry";
+import type {
+  TelemetryHistoryResponse,
+  TelemetryStreamMessage,
+} from "../types/telemetry";
 import type {
   HistoryRequest,
   TelemetryClient,
@@ -9,7 +12,7 @@ import type {
 export class ApiTelemetryClient implements TelemetryClient {
   private socket: WebSocket | null = null;
 
-  async fetchHistory({ minutes, limit }: HistoryRequest): Promise<HistorySnapshot> {
+  async fetchHistory({ minutes, limit }: HistoryRequest): Promise<TelemetryHistoryResponse> {
     const response = await fetch(
       `${appConfig.apiUrl}/telemetry/history?minutes=${minutes}&limit=${limit}`,
     );
@@ -18,7 +21,7 @@ export class ApiTelemetryClient implements TelemetryClient {
       throw new Error(`Failed to fetch telemetry history (${response.status}).`);
     }
 
-    const payload = (await response.json()) as HistorySnapshot;
+    const payload = (await response.json()) as TelemetryHistoryResponse;
     return payload;
   }
 

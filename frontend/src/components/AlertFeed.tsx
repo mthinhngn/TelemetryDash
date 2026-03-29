@@ -17,14 +17,14 @@ export function AlertFeed({ alerts }: AlertFeedProps) {
         <ol className="alert-feed__list">
           {alerts.map((alert) => (
             <li
-              className={`alert-feed__item alert-feed__item--${alert.level}`}
+              className={`alert-feed__item alert-feed__item--${alert.severity}`}
               key={alert.id}
             >
               <div className="alert-feed__meta">
-                <span className="alert-feed__level">{alert.level}</span>
-                <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
+                <span className="alert-feed__level">{alert.severity}</span>
+                <span>{new Date(alert.occurred_at).toLocaleTimeString()}</span>
               </div>
-              <strong className="alert-feed__metric">{alert.metric}</strong>
+              <strong className="alert-feed__metric">{alert.metric_name}</strong>
               <p className="alert-feed__message">{alert.message}</p>
             </li>
           ))}

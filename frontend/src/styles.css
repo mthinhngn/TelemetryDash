@@ -233,6 +233,35 @@ body {
   gap: 16px;
 }
 
+.meta-panel {
+  min-height: 100%;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.meta-item {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 42, 67, 0.08);
+}
+
+.meta-item span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.meta-item strong {
+  display: block;
+  margin-top: 6px;
+}
+
 .fan-indicator {
   display: flex;
   justify-content: space-between;
@@ -382,6 +411,10 @@ body {
   }
 
   .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .meta-grid {
     grid-template-columns: 1fr;
   }
 }

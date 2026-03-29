@@ -1,4 +1,4 @@
-import type { HistorySnapshot, TelemetryStreamMessage } from "../types/telemetry";
+import type { TelemetryHistoryResponse, TelemetryStreamMessage } from "../types/telemetry";
 
 export type ConnectionStatus =
   | "idle"
@@ -19,7 +19,7 @@ export interface TelemetryClientHandlers {
 }
 
 export interface TelemetryClient {
-  fetchHistory(request: HistoryRequest): Promise<HistorySnapshot>;
+  fetchHistory(request: HistoryRequest): Promise<TelemetryHistoryResponse>;
   connect(handlers: TelemetryClientHandlers): void;
   disconnect(): void;
 }

@@ -1,6 +1,6 @@
-import type { AlertLevel } from "../types/telemetry";
+import type { AlertSeverity } from "../types/telemetry";
 
-type MetricSeverity = AlertLevel | "normal";
+type MetricSeverity = AlertSeverity | "normal";
 
 interface MetricCardProps {
   label: string;

@@ -1,14 +1,18 @@
-import type { AlertEvent, HistorySnapshot, TelemetryReading } from "../types/telemetry";
+import type {
+  AlertEvent,
+  TelemetryHistoryResponse,
+  TelemetryReading,
+} from "../types/telemetry";
 
 const readingKey = (reading: TelemetryReading) =>
-  `${reading.timestamp}:${reading.lap}:${reading.distance_m.toFixed(1)}`;
+  String(reading.id ?? reading.simulator_ts);
 
-const alertKey = (alert: AlertEvent) => alert.id;
+const alertKey = (alert: AlertEvent) => String(alert.id);
 
 export function normalizeReadings(readings: TelemetryReading[]): TelemetryReading[] {
   return [...readings].sort(
     (left, right) =>
-      new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime(),
+      new Date(left.simulator_ts).getTime() - new Date(right.simulator_ts).getTime(),
   );
 }
 
@@ -41,17 +45,19 @@ export function prependAlerts(
   return [...map.values()]
     .sort(
       (left, right) =>
-        new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
+        new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime(),
     )
     .slice(0, maxItems);
 }
 
 export function normalizeHistory(
-  snapshot: HistorySnapshot,
+  snapshot: TelemetryHistoryResponse,
   chartBufferSize: number,
   alertLimit = 10,
-): HistorySnapshot {
+): TelemetryHistoryResponse {
   return {
+    ...snapshot,
+    count: Math.min(snapshot.readings.length, chartBufferSize),
     readings: mergeReadings([], snapshot.readings, chartBufferSize),
     alerts: prependAlerts([], snapshot.alerts, alertLimit),
   };

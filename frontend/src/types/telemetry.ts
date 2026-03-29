@@ -1,67 +1,73 @@
-export type AlertLevel = "warning" | "critical";
+export type AlertSeverity = "warning" | "critical";
 
 export interface TelemetryReading {
-  timestamp: string;
-  lap: number;
-  distance_m: number;
-  speed_kmh: number;
-  motor_rpm: number;
-  throttle_pct: number;
-  brake_pct: number;
-  torque_command_nm: number;
-  torque_feedback_nm: number;
-  power_requested_kw: number;
-  power_actual_kw: number;
-  power_limit_target_kw: number;
-  pack_voltage_v: number;
-  pack_current_a: number;
+  id: number;
+  simulator_ts: string;
+  vehicle_id: string;
+  lap_number: number;
+  lap_distance_m: number;
+  speed_kph: number;
+  acceleration_x_g: number;
+  acceleration_y_g: number;
+  acceleration_z_g: number;
   battery_soc_pct: number;
+  battery_voltage_v: number;
+  battery_current_a: number;
+  battery_temp_c: number;
+  motor_rpm: number;
   motor_temp_c: number;
   inverter_temp_c: number;
-  gate_driver_temp_c: number;
-  battery_temp_c: number;
-  highest_cell_temp_c: number;
-  cell_voltage_high_v: number;
-  cell_voltage_low_v: number;
-  cell_delta_v: number;
-  lap_energy_wh: number;
-  total_energy_kwh: number;
-  carry_over_wh: number;
-  rad_fan_active: boolean;
-  battery_fan_active: boolean;
+  coolant_temp_c: number;
+  ambient_temp_c: number;
+  tire_fl_temp_c: number;
+  tire_fr_temp_c: number;
+  tire_rl_temp_c: number;
+  tire_rr_temp_c: number;
+  brake_pressure_front_bar: number;
+  brake_pressure_rear_bar: number;
+  steering_angle_deg: number;
+  throttle_pct: number;
+  brake_pct: number;
+  latitude_deg: number;
+  longitude_deg: number;
+  ingested_at: string;
 }
 
 export interface AlertEvent {
-  id: string;
-  timestamp: string;
-  metric: string;
-  value: number;
-  level: AlertLevel;
+  id: number;
+  reading_id: number;
+  alert_type: string;
+  severity: AlertSeverity;
+  metric_name: string;
+  metric_value: number;
+  threshold_value: number;
   message: string;
+  occurred_at: string;
 }
 
-export interface HistoryInitMessage {
-  type: "history_init";
+export interface SnapshotMessage {
+  type: "snapshot";
   readings: TelemetryReading[];
-  alerts: AlertEvent[];
 }
 
-export interface TelemetryMessage {
+export interface LiveTelemetryMessage {
   type: "telemetry";
   reading: TelemetryReading;
 }
 
-export interface AlertMessage {
+export interface LiveAlertMessage {
   type: "alert";
   alert: AlertEvent;
 }
 
 export type TelemetryStreamMessage =
-  | HistoryInitMessage
-  | TelemetryMessage
-  | AlertMessage;
+  | SnapshotMessage
+  | LiveTelemetryMessage
+  | LiveAlertMessage;
 
-export interface HistorySnapshot {
+export interface TelemetryHistoryResponse {
+  minutes: number;
+  count: number;
   readings: TelemetryReading[];
   alerts: AlertEvent[];
 }

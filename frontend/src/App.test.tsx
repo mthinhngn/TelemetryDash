@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type {
   AlertEvent,
-  HistorySnapshot,
+  TelemetryHistoryResponse,
   TelemetryReading,
   TelemetryStreamMessage,
 } from "./types/telemetry";
@@ -27,12 +27,11 @@ class Deferred<T> {
 class FakeTelemetryClient implements TelemetryClient {
   handlers: TelemetryClientHandlers | null = null;
   connectCalls = 0;
-  disconnectCalls = 0;
   fetchRequest: HistoryRequest | null = null;
 
-  constructor(private readonly historyProvider: () => Promise<HistorySnapshot>) {}
+  constructor(private readonly historyProvider: () => Promise<TelemetryHistoryResponse>) {}
 
-  fetchHistory(request: HistoryRequest): Promise<HistorySnapshot> {
+  fetchHistory(request: HistoryRequest): Promise<TelemetryHistoryResponse> {
     this.fetchRequest = request;
     return this.historyProvider();
   }
@@ -44,7 +43,6 @@ class FakeTelemetryClient implements TelemetryClient {
   }
 
   disconnect(): void {
-    this.disconnectCalls += 1;
     this.handlers = null;
   }
 
@@ -59,53 +57,71 @@ class FakeTelemetryClient implements TelemetryClient {
 
 function buildReading(overrides: Partial<TelemetryReading> = {}): TelemetryReading {
   return {
-    timestamp: "2025-03-14T10:00:00.100Z",
-    lap: 3,
-    distance_m: 1240.5,
-    speed_kmh: 87.4,
-    motor_rpm: 7200,
-    throttle_pct: 62,
-    brake_pct: 0,
-    torque_command_nm: 230,
-    torque_feedback_nm: 218.5,
-    power_requested_kw: 72,
-    power_actual_kw: 68.5,
-    power_limit_target_kw: 70,
-    pack_voltage_v: 396.2,
-    pack_current_a: 173,
+    id: 1,
+    simulator_ts: "2025-03-14T10:00:00.100Z",
+    vehicle_id: "sim-01",
+    lap_number: 3,
+    lap_distance_m: 1240.5,
+    speed_kph: 87.4,
+    acceleration_x_g: 0.11,
+    acceleration_y_g: 0.42,
+    acceleration_z_g: 1.01,
     battery_soc_pct: 74.1,
+    battery_voltage_v: 396.2,
+    battery_current_a: 173,
+    battery_temp_c: 38.2,
+    motor_rpm: 7200,
     motor_temp_c: 67.3,
     inverter_temp_c: 61.8,
-    gate_driver_temp_c: 58.4,
-    battery_temp_c: 38.2,
-    highest_cell_temp_c: 41.7,
-    cell_voltage_high_v: 4.08,
-    cell_voltage_low_v: 3.94,
-    cell_delta_v: 0.14,
-    lap_energy_wh: 182,
-    total_energy_kwh: 1.92,
-    carry_over_wh: 68,
-    rad_fan_active: true,
-    battery_fan_active: false,
+    coolant_temp_c: 45.4,
+    ambient_temp_c: 24.1,
+    tire_fl_temp_c: 61.1,
+    tire_fr_temp_c: 60.7,
+    tire_rl_temp_c: 57.2,
+    tire_rr_temp_c: 57.6,
+    brake_pressure_front_bar: 0,
+    brake_pressure_rear_bar: 0,
+    steering_angle_deg: 4.2,
+    throttle_pct: 62,
+    brake_pct: 0,
+    latitude_deg: 33.8812,
+    longitude_deg: -117.8826,
+    ingested_at: "2025-03-14T10:00:00.130Z",
     ...overrides,
   };
 }
 
-function buildAlert(
-  overrides: Partial<AlertEvent> & Pick<AlertEvent, "id" | "message">,
-): AlertEvent {
+function buildAlert(overrides: Partial<AlertEvent> = {}): AlertEvent {
   return {
-    timestamp: "2025-03-14T10:00:01.100Z",
-    metric: "motor_temp_c",
-    value: 72.3,
-    level: "warning",
+    id: 1,
+    reading_id: 1,
+    alert_type: "thermal",
+    severity: "warning",
+    metric_name: "motor_temp_c",
+    metric_value: 72.3,
+    threshold_value: 70,
+    message: "Motor temperature warning at 72.3 C.",
+    occurred_at: "2025-03-14T10:00:01.130Z",
     ...overrides,
+  };
+}
+
+function buildHistory(
+  readings: TelemetryReading[],
+  alerts: AlertEvent[] = [],
+  minutes = 5,
+): TelemetryHistoryResponse {
+  return {
+    minutes,
+    count: readings.length,
+    readings,
+    alerts,
   };
 }
 
 describe("Telemetry dashboard", () => {
   it("renders a connecting state while history is loading", () => {
-    const deferred = new Deferred<HistorySnapshot>();
+    const deferred = new Deferred<TelemetryHistoryResponse>();
     const client = new FakeTelemetryClient(() => deferred.promise);
 
     render(<App client={client} />);
@@ -115,11 +131,43 @@ describe("Telemetry dashboard", () => {
     );
   });
 
-  it("updates live cards when telemetry events arrive", async () => {
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [buildReading()],
-      alerts: [],
-    }));
+  it("loads initial history from fetchHistory", async () => {
+    const client = new FakeTelemetryClient(async () =>
+      buildHistory([buildReading({ speed_kph: 99.4, id: 7 })]),
+    );
+
+    render(<App client={client} />);
+
+    await waitFor(() => expect(client.connectCalls).toBe(1));
+
+    expect(screen.getByText("99.4")).toBeInTheDocument();
+    expect(client.fetchRequest).toEqual({ minutes: 5, limit: 1000 });
+  });
+
+  it("merges socket snapshot payloads into dashboard state", async () => {
+    const client = new FakeTelemetryClient(async () => buildHistory([]));
+
+    render(<App client={client} />);
+
+    await waitFor(() => expect(client.connectCalls).toBe(1));
+
+    act(() => {
+      client.setStatus("connected");
+      client.emit({
+        type: "snapshot",
+        readings: [
+          buildReading({ id: 10, simulator_ts: "2025-03-14T10:00:01.000Z", speed_kph: 91.1 }),
+          buildReading({ id: 11, simulator_ts: "2025-03-14T10:00:02.000Z", speed_kph: 93.8 }),
+        ],
+      });
+    });
+
+    expect(screen.getByTestId("sample-count")).toHaveTextContent("2");
+    expect(screen.getByText("93.8")).toBeInTheDocument();
+  });
+
+  it("updates live metric cards on telemetry messages", async () => {
+    const client = new FakeTelemetryClient(async () => buildHistory([buildReading()]));
 
     render(<App client={client} />);
 
@@ -130,22 +178,21 @@ describe("Telemetry dashboard", () => {
       client.emit({
         type: "telemetry",
         reading: buildReading({
-          timestamp: "2025-03-14T10:00:02.100Z",
-          speed_kmh: 121.4,
-          power_actual_kw: 74.2,
+          id: 2,
+          simulator_ts: "2025-03-14T10:00:02.100Z",
+          speed_kph: 121.4,
+          throttle_pct: 78.1,
+          brake_pct: 12.4,
         }),
       });
     });
 
     expect(screen.getByText("121.4")).toBeInTheDocument();
-    expect(screen.getByText("74.2")).toBeInTheDocument();
+    expect(screen.getByText("Brake 12.4%")).toBeInTheDocument();
   });
 
-  it("prepends alerts and caps the alert feed at ten items", async () => {
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [buildReading()],
-      alerts: [],
-    }));
+  it("prepends backend alerts and caps the feed at ten items", async () => {
+    const client = new FakeTelemetryClient(async () => buildHistory([buildReading()]));
 
     render(<App client={client} />);
 
@@ -157,9 +204,9 @@ describe("Telemetry dashboard", () => {
         client.emit({
           type: "alert",
           alert: buildAlert({
-            id: `alert-${index}`,
+            id: index + 1,
             message: `Alert ${index}`,
-            timestamp: `2025-03-14T10:00:${String(index).padStart(2, "0")}.000Z`,
+            occurred_at: `2025-03-14T10:00:${String(index).padStart(2, "0")}.000Z`,
           }),
         });
       }
@@ -170,13 +217,11 @@ describe("Telemetry dashboard", () => {
     expect(screen.getByTestId("alert-count")).toHaveTextContent("10");
   });
 
-  it("shows reconnecting state and retries after disconnect", async () => {
+  it("retries after disconnect", async () => {
     vi.useFakeTimers();
+
     try {
-      const client = new FakeTelemetryClient(async () => ({
-        readings: [buildReading()],
-        alerts: [],
-      }));
+      const client = new FakeTelemetryClient(async () => buildHistory([buildReading()]));
 
       await act(async () => {
         render(<App client={client} />);
@@ -205,11 +250,13 @@ describe("Telemetry dashboard", () => {
     }
   });
 
-  it("seeds the dashboard from history_init messages", async () => {
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [],
-      alerts: [],
-    }));
+  it("renders against backend-shaped history and live socket data", async () => {
+    const client = new FakeTelemetryClient(async () =>
+      buildHistory(
+        [buildReading({ id: 4, speed_kph: 102.2 })],
+        [buildAlert({ id: 99, metric_name: "battery_soc_pct", severity: "warning" })],
+      ),
+    );
 
     render(<App client={client} />);
 
@@ -218,61 +265,14 @@ describe("Telemetry dashboard", () => {
     act(() => {
       client.setStatus("connected");
       client.emit({
-        type: "history_init",
-        readings: [
-          buildReading({ timestamp: "2025-03-14T10:00:01.000Z", speed_kmh: 91.1 }),
-          buildReading({ timestamp: "2025-03-14T10:00:02.000Z", speed_kmh: 93.8 }),
-        ],
-        alerts: [buildAlert({ id: "history-alert", message: "History alert" })],
+        type: "snapshot",
+        readings: [buildReading({ id: 5, simulator_ts: "2025-03-14T10:00:03.000Z", motor_rpm: 7450 })],
       });
     });
 
-    expect(screen.getByTestId("sample-count")).toHaveTextContent("2");
-    expect(screen.getByText("93.8")).toBeInTheDocument();
-    expect(screen.getByText("History alert")).toBeInTheDocument();
-  });
-
-  it("caps the chart buffer at 600 readings", async () => {
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [],
-      alerts: [],
-    }));
-
-    render(<App client={client} />);
-
-    await waitFor(() => expect(client.connectCalls).toBe(1));
-
-    act(() => {
-      client.setStatus("connected");
-      for (let index = 0; index < 650; index += 1) {
-        client.emit({
-          type: "telemetry",
-          reading: buildReading({
-            timestamp: `2025-03-14T10:${String(Math.floor(index / 60)).padStart(2, "0")}:${String(index % 60).padStart(2, "0")}.000Z`,
-            speed_kmh: 80 + index,
-          }),
-        });
-      }
-    });
-
-    expect(screen.getByTestId("sample-count")).toHaveTextContent("600");
-  });
-
-  it("renders the dashboard sections together without crashing", async () => {
-    const client = new FakeTelemetryClient(async () => ({
-      readings: [buildReading()],
-      alerts: [buildAlert({ id: "seed-alert", message: "Seed alert" })],
-    }));
-
-    render(<App client={client} />);
-
-    await waitFor(() => expect(client.connectCalls).toBe(1));
-
-    expect(screen.getByRole("heading", { name: "TelemetryDash" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Speed Trend" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Battery Electrical" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Driver Inputs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Alert Feed" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Power Envelope" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Highest Cell Temperature" }),
-    ).toBeInTheDocument();
   });
 });

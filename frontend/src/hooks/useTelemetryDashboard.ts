@@ -82,7 +82,7 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
           startTransition(() => {
             setState((current) => {
               switch (message.type) {
-                case "history_init": {
+                case "snapshot": {
                   const readings = mergeReadings(
                     current.readings,
                     message.readings,
@@ -93,7 +93,6 @@ export function useTelemetryDashboard(client: TelemetryClient): DashboardState {
                     ...current,
                     readings,
                     latestReading: readings.at(-1) ?? current.latestReading,
-                    alerts: prependAlerts(current.alerts, message.alerts, 10),
                   };
                 }
                 case "telemetry": {
