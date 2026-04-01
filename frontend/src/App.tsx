@@ -9,7 +9,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { appConfig } from "./config";
 import { AlertFeed } from "./components/AlertFeed";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { MetricCard } from "./components/MetricCard";
