@@ -22,6 +22,10 @@ class Settings(BaseModel):
     high_inverter_temp_c: float = 95.0
     high_coolant_temp_c: float = 105.0
 
+    sim_enabled: bool = True
+    sim_hz: float = 10.0
+    sim_vehicle_id: str = "auto-sim"
+
     @field_validator("database_url", mode="before")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:
@@ -94,4 +98,7 @@ def get_settings() -> Settings:
             "HIGH_COOLANT_TEMP_C",
             dotenv_values.get("HIGH_COOLANT_TEMP_C", 105.0),
         ),
+        sim_enabled=os.getenv("SIM_ENABLED", dotenv_values.get("SIM_ENABLED", True)),
+        sim_hz=float(os.getenv("SIM_HZ", dotenv_values.get("SIM_HZ", 10.0))),
+        sim_vehicle_id=os.getenv("SIM_VEHICLE_ID", dotenv_values.get("SIM_VEHICLE_ID", "auto-sim")),
     )
